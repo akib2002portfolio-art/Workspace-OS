@@ -2,9 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 
 const initialTasks = [
-  { id: 1, title: 'Ship onboarding flow', done: true },
-  { id: 2, title: 'Review design system tokens', done: false },
-  { id: 3, title: 'Plan sprint retro notes', done: false },
+  { id: 1, title: 'Ship onboarding flow', done: true, priority: 'High', due: '2026-07-02' },
+  { id: 2, title: 'Review design system tokens', done: false, priority: 'Medium', due: '2026-07-04' },
+  { id: 3, title: 'Plan sprint retro notes', done: false, priority: 'Low', due: '2026-07-06' },
 ]
 
 const initialNotes = [
@@ -61,7 +61,19 @@ function App() {
 
     return window.matchMedia('(prefers-color-scheme: dark)').matches
   })
-  const [tasks, setTasks] = useState(initialTasks)
+  const [tasks, setTasks] = useState(() => {
+    if (typeof window === 'undefined') {
+      return initialTasks
+    }
+
+    const stored = window.localStorage.getItem('workspace-tasks')
+    return stored ? JSON.parse(stored) : initialTasks
+  })
+  const [taskTitle, setTaskTitle] = useState('')
+  const [taskPriority, setTaskPriority] = useState('Medium')
+  const [taskDue, setTaskDue] = useState('')
+  const [taskFilter, setTaskFilter] = useState('all')
+  const [taskSearch, setTaskSearch] = useState('')
   const [notes, setNotes] = useState(initialNotes)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -73,6 +85,10 @@ function App() {
     document.documentElement.dataset.theme = darkMode ? 'dark' : 'light'
     window.localStorage.setItem('workspace-dark', String(darkMode))
   }, [darkMode])
+
+  useEffect(() => {
+    window.localStorage.setItem('workspace-tasks', JSON.stringify(tasks))
+  }, [tasks])
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -153,7 +169,52 @@ function App() {
     )
   }
 
+  const addTask = (event) => {
+    event.preventDefault()
+    if (!taskTitle.trim()) {
+      return
+    }
+
+    const newTask = {
+      id: Date.now(),
+      title: taskTitle.trim(),
+      done: false,
+      priority: taskPriority,
+      due: taskDue || null,
+    }
+
+    setTasks((current) => [newTask, ...current])
+    setTaskTitle('')
+    setTaskPriority('Medium')
+    setTaskDue('')
+  }
+
+  const deleteTask = (id) => {
+    setTasks((current) => current.filter((task) => task.id !== id))
+  }
+
   const completeCount = tasks.filter((task) => task.done).length
+  const overdueCount = tasks.filter((task) => task.due && !task.done && new Date(task.due) < new Date()).length
+
+  const filteredTasks = useMemo(() => {
+    const filtered = tasks.filter((task) => {
+      if (taskFilter === 'active') return !task.done
+      if (taskFilter === 'completed') return task.done
+      return true
+    })
+
+    return filtered
+      .filter((task) => task.title.toLowerCase().includes(taskSearch.toLowerCase()))
+      .sort((a, b) => {
+        const priorityRank = { High: 1, Medium: 2, Low: 3 }
+        if (a.done !== b.done) return a.done ? 1 : -1
+        if (a.priority !== b.priority) return priorityRank[a.priority] - priorityRank[b.priority]
+        if (a.due && b.due) return new Date(a.due) - new Date(b.due)
+        if (a.due) return -1
+        if (b.due) return 1
+        return 0
+      })
+  }, [tasks, taskFilter, taskSearch])
 
   if (!isLoggedIn) {
     return (
@@ -284,16 +345,74 @@ function App() {
 
           <article className="card tasks-card">
             <div className="card-title-row">
-              <h3>Today’s tasks</h3>
-              <span className="mini-pill">{completeCount}/{tasks.length} done</span>
+              <div>
+                <h3>Today’s tasks</h3>
+                <p className="task-summary">{completeCount}/{tasks.length} done • {overdueCount} overdue</p>
+              </div>
+              <span className="mini-pill">Task list</span>
             </div>
+
+            <form className="task-form" onSubmit={addTask}>
+              <input
+                type="text"
+                placeholder="Add a new task"
+                value={taskTitle}
+                onChange={(event) => setTaskTitle(event.target.value)}
+              />
+              <div className="task-form-row">
+                <select value={taskPriority} onChange={(event) => setTaskPriority(event.target.value)}>
+                  <option>High</option>
+                  <option>Medium</option>
+                  <option>Low</option>
+                </select>
+                <input
+                  type="date"
+                  value={taskDue}
+                  onChange={(event) => setTaskDue(event.target.value)}
+                />
+                <button type="submit" className="primary-btn">
+                  Add
+                </button>
+              </div>
+            </form>
+
+            <div className="task-controls">
+              <input
+                type="search"
+                placeholder="Search tasks"
+                value={taskSearch}
+                onChange={(event) => setTaskSearch(event.target.value)}
+              />
+              <div className="task-filters">
+                {['all', 'active', 'completed'].map((filter) => (
+                  <button
+                    key={filter}
+                    type="button"
+                    className={taskFilter === filter ? 'filter-btn active' : 'filter-btn'}
+                    onClick={() => setTaskFilter(filter)}
+                  >
+                    {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <ul className="task-list">
-              {tasks.map((task) => (
-                <li key={task.id}>
+              {filteredTasks.map((task) => (
+                <li key={task.id} className={task.done ? 'task-item done' : 'task-item'}>
                   <label>
                     <input type="checkbox" checked={task.done} onChange={() => toggleTask(task.id)} />
-                    <span className={task.done ? 'done' : ''}>{task.title}</span>
+                    <div>
+                      <span className="task-title">{task.title}</span>
+                      <span className="task-meta">
+                        {task.priority} priority
+                        {task.due ? ` • due ${task.due}` : ''}
+                      </span>
+                    </div>
                   </label>
+                  <button type="button" className="delete-btn" onClick={() => deleteTask(task.id)}>
+                    Delete
+                  </button>
                 </li>
               ))}
             </ul>

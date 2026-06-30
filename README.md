@@ -2,6 +2,8 @@
 
 Workspace OS is a responsive productivity dashboard built with React and Vite. It includes a login-style entry screen, task and note widgets, a Pomodoro timer, weather preview, calendar view, goals, and a command palette.
 
+Live Demo: https://workspace-os-nu.vercel.app/
+
 ## Features
 
 - Login entry screen and workspace welcome flow

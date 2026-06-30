@@ -63,10 +63,22 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 24px;
+  gap: 10px;
 }
 
 .topbar h2 {
   margin: 4px 0 0;
+}
+
+.app-shell {
+  width: 100%;
+  min-height: 100vh;
+  padding: 24px;
+  box-sizing: border-box;
+  color: var(--text);
+  background: radial-gradient(circle at top left, rgba(111, 103, 255, 0.12), transparent 24%),
+    radial-gradient(circle at bottom right, rgba(76, 201, 240, 0.14), transparent 26%),
+    var(--bg);
 }
 
 .brand-block {
@@ -122,11 +134,11 @@
   display: grid;
   grid-template-columns: 1.8fr 1fr;
   gap: 20px;
-  padding: 24px;
-  border-radius: 28px;
+  padding: 28px;
+  border-radius: 32px;
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
   color: white;
-  box-shadow: var(--shadow);
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.18);
 }
 
 .hero-copy h1 {
@@ -176,8 +188,8 @@
 }
 
 .card {
-  padding: 18px;
-  border-radius: 22px;
+  padding: 20px;
+  border-radius: 28px;
   background: var(--surface);
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
@@ -215,10 +227,16 @@
 
 .weather-card,
 .timer-card {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
+  display: grid;
+  gap: 16px;
+}
+
+.weather-card {
+  padding: 20px;
+}
+
+.timer-card {
+  padding: 20px;
 }
 
 .weather-card {
@@ -330,7 +348,7 @@
 
 .task-form-row {
   display: grid;
-  grid-template-columns: 1fr 140px 140px 90px;
+  grid-template-columns: 1fr 120px 120px 90px;
   gap: 10px;
 }
 
@@ -458,8 +476,8 @@
 }
 
 .note-list li {
-  padding: 10px 12px;
-  border-radius: 12px;
+  padding: 14px 16px;
+  border-radius: 18px;
   background: var(--surface-2);
 }
 
@@ -565,9 +583,23 @@
   }
 }
 
+@media (max-width: 900px) {
+  .hero-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .calendar-card,
+  .tasks-card,
+  .notes-card,
+  .goals-card,
+  .chart-card {
+    grid-column: span 12;
+  }
+}
+
 @media (max-width: 640px) {
   .app-shell {
-    padding: 14px;
+    padding: 16px;
   }
 
   .topbar {
@@ -576,7 +608,37 @@
     gap: 10px;
   }
 
+  .hero-panel {
+    padding: 22px;
+  }
+
+  .task-form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .task-form-row button {
+    width: 100%;
+  }
+
+  .task-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .task-controls input {
+    min-width: 0;
+  }
+
+  .task-filters {
+    width: 100%;
+    justify-content: space-between;
+  }
+
   .days-row {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .command-panel {
+    width: min(88vw, 520px);
   }
 }

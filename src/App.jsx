@@ -75,6 +75,7 @@ function App() {
   const [taskRecurrence, setTaskRecurrence] = useState('None')
   const [taskFilter, setTaskFilter] = useState('all')
   const [taskSearch, setTaskSearch] = useState('')
+  const [noteInput, setNoteInput] = useState('')
   const [notes, setNotes] = useState(initialNotes)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -223,16 +224,53 @@ function App() {
 
   const commandItems = useMemo(() => {
     const items = [
-      { label: 'Open Calendar', hint: 'Jump to schedule' },
-      { label: 'Focus Session', hint: 'Start a deep work sprint' },
-      { label: 'Review Goals', hint: 'See weekly targets' },
-      { label: 'Toggle Theme', hint: 'Switch between light and dark' },
+      { label: 'Open Calendar', hint: 'Jump to schedule', action: 'calendar' },
+      { label: 'Focus Session', hint: 'Start a deep work sprint', action: 'focus' },
+      { label: 'Review Goals', hint: 'See weekly targets', action: 'goals' },
+      { label: 'Toggle Theme', hint: 'Switch between light and dark', action: 'theme' },
     ]
 
     return items.filter((item) =>
       item.label.toLowerCase().includes(query.toLowerCase()),
     )
   }, [query])
+
+  const scrollToSection = (id) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  const handleCommand = (action) => {
+    switch (action) {
+      case 'calendar':
+        scrollToSection('calendar-card')
+        break
+      case 'focus':
+        setPomodoro({ isRunning: true, seconds: 25 * 60 })
+        break
+      case 'goals':
+        scrollToSection('goals-card')
+        break
+      case 'theme':
+        setDarkMode((value) => !value)
+        break
+      default:
+        break
+    }
+
+    setPaletteOpen(false)
+    setQuery('')
+  }
+
+  const addNote = (event) => {
+    event.preventDefault()
+    const trimmed = noteInput.trim()
+    if (!trimmed) {
+      return
+    }
+
+    setNotes((current) => [trimmed, ...current])
+    setNoteInput('')
+  }
 
   const toggleTask = (id) => {
     setTasks((current) =>
@@ -383,10 +421,10 @@ function App() {
               You have a calm, balanced day ahead with 3 focus blocks left and a healthy pace.
             </p>
             <div className="hero-actions">
-              <button type="button" className="primary-btn">
+              <button type="button" className="primary-btn" onClick={() => document.getElementById('note-input')?.focus()}>
                 New note
               </button>
-              <button type="button" className="secondary-btn">
+              <button type="button" className="secondary-btn" onClick={() => scrollToSection('goals-card')}>
                 Review goals
               </button>
             </div>
@@ -551,6 +589,18 @@ function App() {
               <h3>Quick notes</h3>
               <span className="mini-pill">Fresh</span>
             </div>
+            <form className="note-form" onSubmit={addNote}>
+              <input
+                id="note-input"
+                type="text"
+                value={noteInput}
+                placeholder="Capture a quick note"
+                onChange={(event) => setNoteInput(event.target.value)}
+              />
+              <button type="submit" className="primary-btn">
+                Add note
+              </button>
+            </form>
             <ul className="note-list">
               {notes.map((note) => (
                 <li key={note}>{note}</li>
@@ -591,7 +641,16 @@ function App() {
       </main>
 
       {paletteOpen && (
-        <div className="command-overlay" role="dialog" aria-modal="true">
+        <div
+          className="command-overlay"
+          role="dialog"
+          aria-modal="true"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setPaletteOpen(false)
+            }
+          }}
+        >
           <div className="command-panel">
             <input
               autoFocus
@@ -602,7 +661,12 @@ function App() {
             />
             <div className="command-list">
               {commandItems.map((item) => (
-                <button key={item.label} type="button" className="command-item" onClick={() => setPaletteOpen(false)}>
+                <button
+                  key={item.label}
+                  type="button"
+                  className="command-item"
+                  onClick={() => handleCommand(item.action)}
+                >
                   <span>{item.label}</span>
                   <small>{item.hint}</small>
                 </button>

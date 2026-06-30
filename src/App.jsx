@@ -2,9 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 
 const initialTasks = [
-  { id: 1, title: 'Ship onboarding flow', done: true, priority: 'High', due: '2026-07-02' },
-  { id: 2, title: 'Review design system tokens', done: false, priority: 'Medium', due: '2026-07-04' },
-  { id: 3, title: 'Plan sprint retro notes', done: false, priority: 'Low', due: '2026-07-06' },
+  { id: 1, title: 'Ship onboarding flow', done: true, priority: 'High', due: '2026-07-02', recurrence: 'None' },
+  { id: 2, title: 'Review design system tokens', done: false, priority: 'Medium', due: '2026-07-04', recurrence: 'Weekly' },
+  { id: 3, title: 'Plan sprint retro notes', done: false, priority: 'Low', due: '2026-07-06', recurrence: 'Monthly' },
 ]
 
 const initialNotes = [
@@ -72,6 +72,7 @@ function App() {
   const [taskTitle, setTaskTitle] = useState('')
   const [taskPriority, setTaskPriority] = useState('Medium')
   const [taskDue, setTaskDue] = useState('')
+  const [taskRecurrence, setTaskRecurrence] = useState('None')
   const [taskFilter, setTaskFilter] = useState('all')
   const [taskSearch, setTaskSearch] = useState('')
   const [notes, setNotes] = useState(initialNotes)
@@ -85,6 +86,10 @@ function App() {
     document.documentElement.dataset.theme = darkMode ? 'dark' : 'light'
     window.localStorage.setItem('workspace-dark', String(darkMode))
   }, [darkMode])
+
+  useEffect(() => {
+    window.localStorage.setItem('workspace-tasks', JSON.stringify(tasks))
+  }, [tasks])
 
   useEffect(() => {
     window.localStorage.setItem('workspace-tasks', JSON.stringify(tasks))
@@ -150,6 +155,72 @@ function App() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [])
 
+  const taskStats = useMemo(() => {
+    const total = tasks.length
+    const completed = tasks.filter((task) => task.done).length
+    const active = total - completed
+    const overdue = tasks.filter(
+      (task) => task.due && !task.done && new Date(task.due) < new Date(),
+    ).length
+    const highPriority = tasks.filter((task) => task.priority === 'High' && !task.done).length
+    const recurring = tasks.filter((task) => task.recurrence && task.recurrence !== 'None').length
+    const dueThisWeek = tasks.filter((task) => {
+      if (!task.due) return false
+      const dueDate = new Date(task.due)
+      const today = new Date()
+      const diff = (dueDate - today) / (1000 * 60 * 60 * 24)
+      return diff >= 0 && diff <= 7
+    }).length
+
+    return { total, completed, active, overdue, highPriority, recurring, dueThisWeek }
+  }, [tasks])
+
+  const aiSuggestions = useMemo(() => {
+    const suggestions = []
+    if (taskStats.overdue > 0) {
+      suggestions.push(`You have ${taskStats.overdue} overdue task${taskStats.overdue > 1 ? 's' : ''}. Focus on them first.`)
+    }
+    if (taskStats.highPriority > 0) {
+      suggestions.push(`There are ${taskStats.highPriority} high-priority task${taskStats.highPriority > 1 ? 's' : ''}. Use a focused sprint.`)
+    }
+    if (taskStats.completed / Math.max(taskStats.total, 1) >= 0.75) {
+      suggestions.push('Great momentum! Keep the streak going with a short break between tasks.')
+    }
+    if (taskStats.dueThisWeek > 0) {
+      suggestions.push(`You have ${taskStats.dueThisWeek} task${taskStats.dueThisWeek > 1 ? 's' : ''} due this week.`)
+    }
+    if (weather.description.toLowerCase().includes('rain')) {
+      suggestions.push('Rainy weather ahead — a cozy focus session will help you stay productive.')
+    }
+    if (!suggestions.length) {
+      suggestions.push('No urgent tasks right now. Schedule your next energy block for creative work.')
+    }
+    return suggestions
+  }, [taskStats, weather])
+
+  const calculateNextDue = (due, recurrence) => {
+    if (!due || recurrence === 'None') {
+      return null
+    }
+
+    const next = new Date(due)
+    switch (recurrence) {
+      case 'Daily':
+        next.setDate(next.getDate() + 1)
+        break
+      case 'Weekly':
+        next.setDate(next.getDate() + 7)
+        break
+      case 'Monthly':
+        next.setMonth(next.getMonth() + 1)
+        break
+      default:
+        return null
+    }
+
+    return next.toISOString().split('T')[0]
+  }
+
   const commandItems = useMemo(() => {
     const items = [
       { label: 'Open Calendar', hint: 'Jump to schedule' },
@@ -165,7 +236,27 @@ function App() {
 
   const toggleTask = (id) => {
     setTasks((current) =>
-      current.map((task) => (task.id === id ? { ...task, done: !task.done } : task)),
+      current.flatMap((task) => {
+        if (task.id !== id) return task
+
+        const updated = { ...task, done: !task.done }
+        if (!task.done && task.recurrence && task.recurrence !== 'None' && task.due) {
+          const nextDue = calculateNextDue(task.due, task.recurrence)
+          if (nextDue) {
+            const nextTask = {
+              id: Date.now() + Math.floor(Math.random() * 10000),
+              title: task.title,
+              done: false,
+              priority: task.priority,
+              due: nextDue,
+              recurrence: task.recurrence,
+            }
+            return [updated, nextTask]
+          }
+        }
+
+        return updated
+      }),
     )
   }
 
@@ -181,12 +272,14 @@ function App() {
       done: false,
       priority: taskPriority,
       due: taskDue || null,
+      recurrence: taskRecurrence,
     }
 
     setTasks((current) => [newTask, ...current])
     setTaskTitle('')
     setTaskPriority('Medium')
     setTaskDue('')
+    setTaskRecurrence('None')
   }
 
   const deleteTask = (id) => {
@@ -365,6 +458,12 @@ function App() {
                   <option>Medium</option>
                   <option>Low</option>
                 </select>
+                <select value={taskRecurrence} onChange={(event) => setTaskRecurrence(event.target.value)}>
+                  <option>None</option>
+                  <option>Daily</option>
+                  <option>Weekly</option>
+                  <option>Monthly</option>
+                </select>
                 <input
                   type="date"
                   value={taskDue}
@@ -394,6 +493,35 @@ function App() {
                     {filter.charAt(0).toUpperCase() + filter.slice(1)}
                   </button>
                 ))}
+              </div>
+            </div>
+
+            <div className="analytics-panel">
+              <div className="analytics-grid">
+                <div className="analytics-card">
+                  <strong>{taskStats.active}</strong>
+                  <span>Active tasks</span>
+                </div>
+                <div className="analytics-card">
+                  <strong>{taskStats.overdue}</strong>
+                  <span>Overdue</span>
+                </div>
+                <div className="analytics-card">
+                  <strong>{taskStats.recurring}</strong>
+                  <span>Recurring</span>
+                </div>
+                <div className="analytics-card">
+                  <strong>{taskStats.dueThisWeek}</strong>
+                  <span>Due this week</span>
+                </div>
+              </div>
+              <div className="ai-suggestions">
+                <h4>AI suggestions</h4>
+                <ul>
+                  {aiSuggestions.map((suggestion) => (
+                    <li key={suggestion}>{suggestion}</li>
+                  ))}
+                </ul>
               </div>
             </div>
 
